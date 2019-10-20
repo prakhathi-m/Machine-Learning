@@ -1,0 +1,110 @@
+import util_mnist_reader
+import numpy as np
+import keras 
+from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix,accuracy_score
+x_train, y_train = util_mnist_reader.load_mnist('./', kind='train')
+x_test, y_test = util_mnist_reader.load_mnist('./', kind='t10k')
+
+print('Shape:')
+print('X - x_train, x_valid, x_test:', x_train.shape, x_test.shape)
+print('Y - y_train, y_valid, y_test:', y_train.shape, y_test.shape)
+
+def sigmoid_der(x):
+    return sigmoid(x) * (1-sigmoid (x))
+
+def sigmoid(z):
+    sigmoid_op = 1.0 / (1.0 + np.exp(-1.0 * z))
+    return sigmoid_op
+
+def softmax(z):
+    sigmoid_op = np.exp(z) / np.sum(np.exp(z),axis=0)
+    return sigmoid_op
+
+def oneHotEncoding(data, rows):
+    label =  np.zeros((rows, 10))
+    for i in range(data.shape[0]):
+        label[i][data[i]] = 1
+    return label  
+
+#Preprocessing the dataset
+x_train = x_train.astype('float32')
+x_test = x_test.astype('float32')
+x_train /= 255
+x_test /= 255
+
+#Set hyperparameters
+hidden_nodes = 256
+learning_rate = 0.01
+epochs = 100
+
+# number of samples
+m = x_train.shape[0]
+output_class = 10
+
+#initialise bias and weight to random values
+w1 = np.random.randn(x_train.shape[1], hidden_nodes)*0.01   
+w2 = np.random.randn(hidden_nodes, output_class)*0.01
+b1 = np.zeros((hidden_nodes, 1))
+b2 = np.zeros((output_class, 1))
+
+#convert y_train to one hot encoding
+y_train = oneHotEncoding(y_train, y_train.shape[0])
+y_test = oneHotEncoding(y_test, y_test.shape[0])
+
+print('Shape:')
+print('X - x_train, x_valid, x_test:', x_train.shape, x_test.shape)
+print('Y - y_train, y_valid, y_test:', y_train.shape, y_test.shape)
+print('w1, w2, b1, b2:', w1.shape, w2.shape, b1.shape, b2.shape)
+
+loss_value = []
+for epoch in range(epochs):
+
+    #Forward Propagation
+    z1 =  np.dot(x_train, w1)
+    a1 = sigmoid(z1)
+    z2 = np.dot(a1, w2)
+    output = softmax(z2)
+
+    #Backward Propagation
+    dz = output - y_train
+    db2 = (1./m) * np.sum(dz, axis=1, keepdims=True)
+    da = np.dot(a1.T, dz)
+    derSig = sigmoid_der(a1)
+    t = np.dot(dz, w2.T)
+    temp = np.multiply(t, derSig)
+
+    dw1 = np.dot(temp.T, x_train)
+    dw1 = dw1 * (1./m)
+    dw2 = da * (1./m)
+    
+    db1 = (1./m) * np.sum(temp, axis=1, keepdims=True)
+
+    #Updating weights
+    w1  = w1 - learning_rate * dw1.T
+    w2 = w2 - learning_rate * dw2
+    b1 = b1 - learning_rate * db1.T
+    b2 = b2 - learning_rate * db2.T
+    
+    #computing Loss
+    loss_sum = np.sum(np.multiply(y_train, np.log(output)))
+    loss = -(1./m) * loss_sum
+    print("Epoch", epoch, "------> loss", loss)
+    loss_value.append(np.squeeze(loss))
+
+#Plotting the graph
+plt.figure(1)
+plt.ylabel('cost')
+plt.xlabel('Epochs') 
+plt.plot(loss_value, color = 'blue', label = 'Training Dateset')
+plt.legend(loc='upper right', fontsize='x-large')
+
+#computing Accuracy and confusion matrix
+z3 =  np.dot(x_test, w1)
+a3 = sigmoid(z3)
+z4 = np.dot(a3, w2)
+test_res = softmax(z4)       
+y_true = np.argmax(y_test, axis=1)
+y_predicted = np.argmax(test_res, axis=1)
+print("Accuracy of Single Layer Neural Network:",accuracy_score(y_true, y_predicted.T)*100,'%')
+print("Confusion Matrix:",confusion_matrix(y_true, y_predicted.T))
