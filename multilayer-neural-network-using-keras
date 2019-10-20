@@ -1,0 +1,102 @@
+
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Activation
+import numpy as np
+from sklearn.metrics import multilabel_confusion_matrix, classification_report, accuracy_score, confusion_matrix
+from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
+from keras import optimizers
+import matplotlib.pyplot as plt
+
+# Generate dummy data
+import util_mnist_reader
+x_train, y_train = util_mnist_reader.load_mnist('./', kind='train')
+x_test, y_test = util_mnist_reader.load_mnist('./', kind='t10k')
+
+#Pre-processing of dataset
+x_train = x_train.astype('float32')
+x_test = x_test.astype('float32')
+x_train /= 255
+x_test /= 255
+
+#Partitioning of dataset into validation set
+x_train = x_train[5000:]
+x_valid = x_train[:5000]
+y_train = y_train[5000:]
+y_valid = y_train[:5000]
+
+
+print('Shape:')
+print('X - x_train, x_valid, x_test:', x_train.shape, x_valid.shape, x_test.shape)
+print('Y - y_train, y_valid, y_test:', y_train.shape, y_valid.shape, y_test.shape)
+
+# one hot encode output variable
+y_train = keras.utils.to_categorical(y_train, 10)
+y_test = keras.utils.to_categorical(y_test, 10)
+y_valid = keras.utils.to_categorical(y_valid, 10)
+
+print('Shape:')
+print('X - x_train, x_valid, x_test:', x_train.shape, x_valid.shape, x_test.shape)
+print('Y - y_train, y_valid, y_test:', y_train.shape, y_valid.shape, y_test.shape)
+
+def buildMultiLayerNetwork(x_train, x_valid, x_test):
+    x_train = x_train.reshape(55000, 784)
+    x_valid = x_valid.reshape(5000, 784)
+    x_test = x_test.reshape(10000, 784)
+
+    model = Sequential()
+    # Dense(64) is a fully-connected layer with 64 hidden units.
+    # in the first layer:
+    model.add(Dense(64, activation='tanh', input_dim=784))
+    model.add(Dropout(0.5))
+    model.add(Dense(32, activation='tanh'))
+    model.add(Dropout(0.5))
+    model.add(Dense(10, activation='softmax'))
+
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+
+    history = model.fit(x_train, y_train,
+              validation_data=(x_valid, y_valid),
+              epochs=30,
+              batch_size=128)
+    print('Multilayer Neural Network Model')
+    model.summary()
+    print('Loss Vs Epoch for Multilayer Network Model')
+    plotGraph(history)
+    score = model.evaluate(x_test, y_test, batch_size=128)
+    loss, accuracy = score
+    print('Accuracy for Multilayer Network Model:', accuracy*100, '%')
+    y_test_pred = model.predict_classes(x_test) 
+    y_test_pred = keras.utils.to_categorical(y_test_pred, 10)
+    print('Accuracy Score for Multilayer Network Model:', accuracy_score(y_test, y_test_pred))
+    evaluateAccuracy(y_test_pred)
+
+def evaluateAccuracy(y_test_pred):
+    predictions = np.argmax(y_test_pred, axis=1)
+    ytrue = np.argmax(y_test,axis=1)
+    matrix = confusion_matrix(ytrue, predictions)
+    print('Confusion Matrix', matrix)
+    print('classification_report', classification_report(y_test, y_test_pred))
+
+      
+def plotGraph(history):
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.title('Model accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc='upper left')
+    plt.show()
+
+    # Plot training & validation loss values
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc='upper left')
+    plt.show()
+
+buildMultiLayerNetwork(x_train, x_valid, x_test) 
